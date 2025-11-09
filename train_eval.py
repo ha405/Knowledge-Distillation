@@ -1,15 +1,17 @@
 import torch
 import torch.nn as nn
 
-def train(model, loader, optimizer, criterion, epochs, device='cuda'):
+def train(model, train_loader, val_loader, optimizer, criterion, epochs, device='cuda'):
     model.to(device)
-    model.train()
-
+    
     epoch_losses, epoch_top1, epoch_top5 = [], [], []
+    val_losses, val_top1, val_top5 = [], [], []
 
     for epoch in range(epochs):
+        model.train()
         total_loss, correct_top1, correct_top5, total = 0.0, 0, 0, 0
-        for inputs, labels in loader:
+
+        for inputs, labels in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -31,10 +33,20 @@ def train(model, loader, optimizer, criterion, epochs, device='cuda'):
         epoch_top1.append(top1_acc)
         epoch_top5.append(top5_acc)
 
-        print(f"Epoch [{epoch+1}/{epochs}] | Loss: {avg_loss:.4f} | Top-1: {top1_acc:.2f}% | Top-5: {top5_acc:.2f}%")
+        # Evaluate on validation set
+        if val_loader is not None:
+            val_loss, val1_acc, val5_acc = evaluate(model, val_loader, criterion, device)
+            val_losses.append(val_loss)
+            val_top1.append(val1_acc)
+            val_top5.append(val5_acc)
+            print(f"Epoch [{epoch+1}/{epochs}] | "
+                  f"Train Loss: {avg_loss:.4f} | Top-1: {top1_acc:.2f}% | Top-5: {top5_acc:.2f}% | "
+                  f"Val Loss: {val_loss:.4f} | Top-1: {val1_acc:.2f}% | Top-5: {val5_acc:.2f}%")
+        else:
+            print(f"Epoch [{epoch+1}/{epochs}] | "
+                  f"Train Loss: {avg_loss:.4f} | Top-1: {top1_acc:.2f}% | Top-5: {top5_acc:.2f}%")
 
-    return epoch_losses, epoch_top1, epoch_top5
-
+    return (epoch_losses, epoch_top1, epoch_top5), (val_losses, val_top1, val_top5)
 
 def evaluate(model, loader, criterion, device='cuda'):
     model.to(device)
